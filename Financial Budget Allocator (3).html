@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Budget Allocator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for Data Visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            500: '#06b6d4',
+                            600: '#0891b2',
+                            900: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+        .toggle-checkbox:checked {
+            right: 0;
+            background-color: #6366f1;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #312e81;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-wallet text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">BudgetSplit</h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">Smart Salary & Wealth Allocator</p>
+                </div>
+            </div>
+
+            <!-- Quick Controls & Settings Button -->
+            <div class="flex items-center space-x-3 sm:space-x-4">
+                <button id="openSettingsBtn" class="flex items-center space-x-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition">
+                    <i class="fa-solid fa-sliders text-sm"></i>
+                    <span>Category Settings</span>
+                    <span id="activeCountBadge" class="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-1">7</span>
+                </button>
+
+                <div class="flex items-center space-x-2 bg-slate-800/80 p-1 rounded-lg border border-slate-700">
+                    <span class="text-xs text-slate-400 pl-2 hidden sm:inline"><i class="fa-solid fa-coins me-1"></i>Currency:</span>
+                    <select id="currencySelect" class="bg-slate-900 text-sm font-semibold rounded px-2 py-1 border border-slate-700 focus:outline-none focus:border-indigo-500 text-slate-200">
+                        <option value="DH" selected>DH (MAD)</option>
+                        <option value="$">$ (USD)</option>
+                        <option value="€">€ (EUR)</option>
+                        <option value="£">£ (GBP)</option>
+                        <option value="₹">₹ (INR)</option>
+                        <option value="A$">A$ (AUD)</option>
+                        <option value="C$">C$ (CAD)</option>
+                        <option value="¥">¥ (JPY)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        
+        <!-- Input & Hero Section -->
+        <section class="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+            <div class="absolute -right-16 -bottom-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -left-16 -top-16 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="max-w-3xl mx-auto text-center space-y-6">
+                <div>
+                    <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Enter Income or Funds to Split</h2>
+                    <p class="text-slate-400 text-sm sm:text-base mt-2">Any unselected expense is automatically reallocated proportionally across your active categories.</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 max-w-2xl mx-auto w-full">
+                    <div class="relative sm:col-span-7">
+                        <span id="currencySymbolPrefix" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-base font-bold">DH</span>
+                        <input type="number" id="salaryInput" min="0" step="any" placeholder="Enter amount (e.g. 10000)" 
+                               class="w-full pl-12 pr-4 py-3 bg-slate-950/80 border-2 border-indigo-500/50 rounded-xl text-lg sm:text-xl font-bold text-white placeholder-slate-600 focus:outline-none focus:border-indigo-400 transition shadow-inner">
+                    </div>
+                    <div class="relative sm:col-span-5">
+                        <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"><i class="fa-regular fa-calendar-days"></i></span>
+                        <input type="number" id="daysInput" min="1" step="1" placeholder="Days to cover (optional)" 
+                               class="w-full pl-9 pr-3 py-3 bg-slate-950/80 border-2 border-slate-700 rounded-xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400 transition shadow-inner">
+                    </div>
+                </div>
+                <div class="flex items-center justify-center gap-2 pt-1">
+                    <button id="calcBtn" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-2 text-sm">
+                        <i class="fa-solid fa-calculator"></i>
+                        <span>Calculate Allocation</span>
+                    </button>
+                    <button id="resetBtn" class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl transition border border-slate-700 text-sm">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Reallocation Notice Banner -->
+        <div id="reallocationBanner" class="hidden bg-indigo-950/40 border border-indigo-500/30 p-3.5 rounded-xl flex items-center justify-between text-xs text-indigo-300">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-arrows-rotate text-indigo-400 text-sm"></i>
+                <span id="reallocationText">Reallocation active: Unchecked expenses are redistributed proportionally among remaining categories.</span>
+            </div>
+            <button id="openSettingsBannerBtn" class="underline font-semibold hover:text-white">Adjust in Settings</button>
+        </div>
+
+        <section class="space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                    <h3 class="text-xl font-bold text-white flex items-center">
+                        <i class="fa-solid fa-layer-group me-2 text-indigo-400"></i> Active Allocated Categories
+                    </h3>
+                    <p class="text-xs text-slate-400">Click on any category card to view spend limits, daily breakdowns, and purchase feasibility.</p>
+                </div>
+            </div>
+
+            <!-- Cards Grid Container -->
+            <div id="cardsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                <!-- Javascript Rendered Here -->
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Chart Container -->
+            <div class="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-slate-200 flex items-center text-sm">
+                        <i class="fa-solid fa-chart-pie me-2 text-indigo-400"></i> Distribution Breakdown
+                    </h3>
+                    <span class="text-xs bg-slate-800 text-emerald-400 px-2.5 py-1 rounded-full border border-slate-700 font-semibold">100% Reallocated</span>
+                </div>
+                <div class="relative flex items-center justify-center p-2 h-64">
+                    <canvas id="budgetChart"></canvas>
+                </div>
+                <p class="text-xs text-center text-slate-400 mt-3">Click on any chart slice or card to view details.</p>
+            </div>
+
+            <!-- Overview Stat Highlights -->
+            <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-lg">
+                    <div class="flex items-center justify-between text-slate-400 text-xs font-semibold">
+                        <span>TOTAL FUNDS</span>
+                        <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+                            <i class="fa-solid fa-money-bill-wave"></i>
+                        </div>
+                    </div>
+                    <div class="my-3">
+                        <span id="statTotal" class="text-2xl sm:text-3xl font-extrabold text-white">0.00 DH</span>
+                    </div>
+                    <p class="text-xs text-slate-500">Base total amount</p>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-lg">
+                    <div class="flex items-center justify-between text-slate-400 text-xs font-semibold">
+                        <span>ACTIVE CATEGORIES</span>
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                            <i class="fa-solid fa-list-check"></i>
+                        </div>
+                    </div>
+                    <div class="my-3">
+                        <span id="statActiveCount" class="text-2xl sm:text-3xl font-extrabold text-emerald-400">7</span>
+                    </div>
+                    <p class="text-xs text-slate-500">Selected expense buckets</p>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-lg">
+                    <div class="flex items-center justify-between text-slate-400 text-xs font-semibold">
+                        <span>TOP ALLOCATION</span>
+                        <div class="w-8 h-8 rounded-lg bg-violet-500/10 text-violet-400 flex items-center justify-center">
+                            <i class="fa-solid fa-crown"></i>
+                        </div>
+                    </div>
+                    <div class="my-3">
+                        <span id="statTopCategory" class="text-xl sm:text-2xl font-extrabold text-violet-400 truncate block">Housing</span>
+                    </div>
+                    <p id="statTopCategorySub" class="text-xs text-slate-500">Largest single category share</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="settingsModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl transform scale-95 transition-transform duration-300" id="settingsModalContent">
+            
+            <!-- Modal Header -->
+            <div class="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/90 rounded-t-2xl">
+                <div>
+                    <h3 class="text-xl font-bold text-white flex items-center">
+                        <i class="fa-solid fa-sliders text-indigo-400 me-2.5"></i> Expense & Category Manager
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-1">Toggle off expenses you don't have. Remaining funds auto-redistribute proportionally.</p>
+                </div>
+                <button id="closeSettingsBtn" class="text-slate-400 hover:text-white bg-slate-800 p-2 rounded-lg border border-slate-700 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body / Scrollable Categories list -->
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+                <!-- Standard & Niche Categories List -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Default & Niche Expense Pool</h4>
+                        <button id="selectAllBtn" class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold">Enable All</button>
+                    </div>
+
+                    <div id="settingsCategoryList" class="space-y-2">
+                        <!-- Javascript Rendered Category Toggles -->
+                    </div>
+                </div>
+
+                <!-- Custom Category Creation Form ("Option to code / custom add") -->
+                <div class="border-t border-slate-800 pt-5 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center">
+                            <i class="fa-solid fa-plus-circle me-1.5 text-emerald-400"></i> Add Custom Expense Category
+                        </h4>
+                    </div>
+
+                    <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Category Name</label>
+                                <input type="text" id="customCatTitle" placeholder="e.g. Side Business / Tuition" 
+                                       class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Base Importance Weight (%)</label>
+                                <input type="number" id="customCatWeight" placeholder="10" min="1" max="100" 
+                                       class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Description / Purpose</label>
+                            <input type="text" id="customCatDesc" placeholder="[Brief explanation in brackets]" 
+                                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <button id="addCustomCatBtn" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-lg transition flex items-center justify-center space-x-1.5 shadow">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>Add & Enable Custom Category</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 bg-slate-950/90 border-t border-slate-800 flex items-center justify-between rounded-b-2xl">
+                <button id="restoreDefaultsBtn" class="text-xs text-slate-400 hover:text-slate-200 underline">
+                    Restore Defaults
+                </button>
+                <button id="applySettingsBtn" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition shadow-lg shadow-indigo-600/30">
+                    Apply & Recalculate
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="categoryModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl transform scale-95 transition-transform duration-300" id="modalContent">
+            
+            <!-- Modal Header -->
+            <div id="modalHeader" class="p-6 border-b border-slate-800 flex items-start justify-between relative overflow-hidden rounded-t-2xl">
+                <div class="flex items-center space-x-3.5 z-10">
+                    <div id="modalIcon" class="w-12 h-12 rounded-xl flex items-center justify-center text-xl text-white shadow-lg">
+                        <i class="fa-solid fa-folder"></i>
+                    </div>
+                    <div>
+                        <h3 id="modalTitle" class="text-xl font-bold text-white">Category Title</h3>
+                        <span id="modalPercentage" class="text-xs font-semibold px-2.5 py-0.5 rounded-full border border-slate-700 bg-slate-800/80 text-slate-300">
+                            Effective Allocation: 0%
+                        </span>
+                    </div>
+                </div>
+                <button id="closeModalBtn" class="text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 p-2 rounded-lg border border-slate-700 transition z-10">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="p-6 space-y-6">
+                <!-- Explanation -->
+                <div class="bg-slate-950/60 border border-slate-800 p-4 rounded-xl">
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Purpose & Description</div>
+                    <p id="modalExplanation" class="text-slate-200 text-sm leading-relaxed">[Explanation in brackets]</p>
+                </div>
+
+                <!-- Custom Multi-Day Spending Limit Calculator -->
+                <div id="modalTimeLimitsContainer" class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-sm font-bold text-slate-300 flex items-center">
+                            <i class="fa-solid fa-calendar-days me-2 text-indigo-400"></i> Multi-Day Spending Calculator
+                        </h4>
+                        <span id="modalDaysLabel" class="text-xs text-indigo-400 font-semibold bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">Custom Interval</span>
+                    </div>
+
+                    <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-3">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <label class="text-xs font-semibold text-slate-400 flex items-center gap-2">
+                                <span>Calculate budget for:</span>
+                                <div class="inline-flex items-center space-x-1">
+                                    <input type="number" id="customIntervalDays" min="1" max="365" value="4" 
+                                           class="w-16 bg-slate-900 border border-indigo-500/50 rounded-lg px-2.5 py-1 text-sm font-bold text-indigo-300 text-center focus:outline-none focus:border-indigo-400 shadow-inner">
+                                    <span class="text-xs font-bold text-slate-300">Days</span>
+                                </div>
+                            </label>
+                            
+                            <!-- Quick interval preset chips -->
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <button class="interval-chip text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition font-semibold" data-days="2">2d</button>
+                                <button class="interval-chip text-[11px] bg-indigo-600 text-white px-2.5 py-1 rounded-lg border border-indigo-500 transition font-bold shadow" data-days="4">4d</button>
+                                <button class="interval-chip text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition font-semibold" data-days="7">7d</button>
+                                <button class="interval-chip text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition font-semibold" data-days="14">14d</button>
+                                <button class="interval-chip text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition font-semibold" data-days="30">30d</button>
+                            </div>
+                        </div>
+
+                        <!-- Result Display Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
+                            <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-lg">
+                                <div class="text-[11px] text-slate-400 flex items-center justify-between">
+                                    <span>Allowed for <span id="intervalDaysDisplay" class="font-bold text-indigo-300">4</span> Days</span>
+                                    <i class="fa-solid fa-basket-shopping text-emerald-400"></i>
+                                </div>
+                                <div id="modalIntervalLimit" class="text-xl sm:text-2xl font-extrabold text-emerald-400 mt-1">0.00 DH</div>
+                                <div id="modalIntervalSubtext" class="text-[10px] text-slate-500 mt-0.5">e.g. Groceries or shopping to cover 4 days</div>
+                            </div>
+                            <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-lg">
+                                <div class="text-[11px] text-slate-400 flex items-center justify-between">
+                                    <span>Daily Rate Equivalent</span>
+                                    <i class="fa-solid fa-gauge-high text-indigo-400"></i>
+                                </div>
+                                <div id="modalDailyLimit" class="text-xl sm:text-2xl font-extrabold text-indigo-400 mt-1">0.00 DH</div>
+                                <div id="modalDailySubtext" class="text-[10px] text-slate-500 mt-0.5">Average max spend per single day</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Purchase Feasibility Checker -->
+                <div class="border-t border-slate-800 pt-5 space-y-4">
+                    <h4 class="text-sm font-bold text-slate-300 flex items-center">
+                        <i class="fa-solid fa-cart-shopping me-2 text-violet-400"></i> Can I afford this purchase?
+                    </h4>
+                    <div class="space-y-3 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">Item / Expense Name</label>
+                                <input type="text" id="checkItemName" placeholder="e.g. New Shoes / Gym" 
+                                       class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">Price / Cost</label>
+                                <input type="number" id="checkItemCost" placeholder="0.00" min="0" step="any"
+                                       class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+
+                        <!-- Feasibility Output Indicator -->
+                        <div id="checkerResult" class="hidden p-3 rounded-lg border text-xs leading-relaxed flex items-center space-x-3">
+                            <div id="checkerIcon" class="text-xl"></div>
+                            <div id="checkerText"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 bg-slate-950/80 border-t border-slate-800 text-right rounded-b-2xl">
+                <button id="closeModalFooterBtn" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-lg transition border border-slate-700">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Master Category Registry (Default + Niche) ---
+        let categoriesMaster = [
+            {
+                id: 'housing',
+                title: 'Housing & Utilities',
+                baseWeight: 30,
+                active: true,
+                badgeBg: 'bg-indigo-500/10',
+                badgeText: 'text-indigo-400',
+                borderColor: 'border-indigo-500/30',
+                hoverBorder: 'hover:border-indigo-500',
+                headerGradient: 'from-indigo-600/20 to-slate-900',
+                accentHex: '#6366f1',
+                icon: 'fa-house',
+                explanation: '[Rent/mortgage, electricity, water, internet, housing upkeep.]'
+            },
+            {
+                id: 'food',
+                title: 'Food & Daily Necessities',
+                baseWeight: 20,
+                active: true,
+                badgeBg: 'bg-emerald-500/10',
+                badgeText: 'text-emerald-400',
+                borderColor: 'border-emerald-500/30',
+                hoverBorder: 'hover:border-emerald-500',
+                headerGradient: 'from-emerald-600/20 to-slate-900',
+                accentHex: '#10b981',
+                icon: 'fa-utensils',
+                explanation: '[Groceries, essential toiletries, household supplies, basic dining.]'
+            },
+            {
+                id: 'investment',
+                title: 'Self-Investment & Bourse',
+                baseWeight: 15,
+                active: true,
+                badgeBg: 'bg-violet-500/10',
+                badgeText: 'text-violet-400',
+                borderColor: 'border-violet-500/30',
+                hoverBorder: 'hover:border-violet-500',
+                headerGradient: 'from-violet-600/20 to-slate-900',
+                accentHex: '#8b5cf6',
+                icon: 'fa-chart-line',
+                explanation: '[Gym, health, skill courses, stock market / index funds.]'
+            },
+            {
+                id: 'transport',
+                title: 'Transportation & Care',
+                baseWeight: 10,
+                active: true,
+                badgeBg: 'bg-amber-500/10',
+                badgeText: 'text-amber-400',
+                borderColor: 'border-amber-500/30',
+                hoverBorder: 'hover:border-amber-500',
+                headerGradient: 'from-amber-600/20 to-slate-900',
+                accentHex: '#f59e0b',
+                icon: 'fa-car',
+                explanation: '[Fuel, transit, vehicle maintenance, insurance, personal care.]'
+            },
+            {
+                id: 'debt_savings',
+                title: 'Debt & Future Savings',
+                baseWeight: 10,
+                active: true,
+                badgeBg: 'bg-teal-500/10',
+                badgeText: 'text-teal-400',
+                borderColor: 'border-teal-500/30',
+                hoverBorder: 'hover:border-teal-500',
+                headerGradient: 'from-teal-600/20 to-slate-900',
+                accentHex: '#14b8a6',
+                icon: 'fa-piggy-bank',
+                explanation: '[High-priority debt payoff; once debt-free, emergency fund or cash savings.]'
+            },
+            {
+                id: 'guilt_free',
+                title: 'Guilt-Free Spending',
+                baseWeight: 5,
+                active: true,
+                badgeBg: 'bg-rose-500/10',
+                badgeText: 'text-rose-400',
+                borderColor: 'border-rose-500/30',
+                hoverBorder: 'hover:border-rose-500',
+                headerGradient: 'from-rose-600/20 to-slate-900',
+                accentHex: '#f43f5e',
+                icon: 'fa-face-smile-beam',
+                explanation: '[No-questions-asked money for hobbies, treats, or spontaneous buys.]'
+            },
+            {
+                id: 'annuals_buffer',
+                title: 'Annuals & Buffer',
+                baseWeight: 5,
+                active: true,
+                badgeBg: 'bg-slate-500/10',
+                badgeText: 'text-slate-300',
+                borderColor: 'border-slate-500/30',
+                hoverBorder: 'hover:border-slate-400',
+                headerGradient: 'from-slate-600/20 to-slate-900',
+                accentHex: '#64748b',
+                icon: 'fa-shield-halved',
+                explanation: '[Irregular costs: gifts, subscriptions, medical co-pays, minor travel.]'
+            },
+            // Niche Optional Categories (Default Inactive)
+            {
+                id: 'charity_zakat',
+                title: 'Zakat & Charity',
+                baseWeight: 5,
+                active: false,
+                badgeBg: 'bg-cyan-500/10',
+                badgeText: 'text-cyan-400',
+                borderColor: 'border-cyan-500/30',
+                hoverBorder: 'hover:border-cyan-500',
+                headerGradient: 'from-cyan-600/20 to-slate-900',
+                accentHex: '#06b6d4',
+                icon: 'fa-hand-holding-heart',
+                explanation: '[Obligatory Zakat, donations, sadaka, helping relatives or charity.]'
+            },
+            {
+                id: 'pet_care',
+                title: 'Pet Care & Vet',
+                baseWeight: 5,
+                active: false,
+                badgeBg: 'bg-orange-500/10',
+                badgeText: 'text-orange-400',
+                borderColor: 'border-orange-500/30',
+                hoverBorder: 'hover:border-orange-500',
+                headerGradient: 'from-orange-600/20 to-slate-900',
+                accentHex: '#f97316',
+                icon: 'fa-paw',
+                explanation: '[Pet food, routine vet visits, grooming, accessories, and pet supplies.]'
+            },
+            {
+                id: 'tech_subscriptions',
+                title: 'Tech & Subscriptions',
+                baseWeight: 5,
+                active: false,
+                badgeBg: 'bg-blue-500/10',
+                badgeText: 'text-blue-400',
+                borderColor: 'border-blue-500/30',
+                hoverBorder: 'hover:border-blue-500',
+                headerGradient: 'from-blue-600/20 to-slate-900',
+                accentHex: '#3b82f6',
+                icon: 'fa-laptop-code',
+                explanation: '[Software, cloud storage, streaming services, domain renewals, gadgets.]'
+            },
+            {
+                id: 'family_kids',
+                title: 'Family & Education',
+                baseWeight: 10,
+                active: false,
+                badgeBg: 'bg-pink-500/10',
+                badgeText: 'text-pink-400',
+                borderColor: 'border-pink-500/30',
+                hoverBorder: 'hover:border-pink-500',
+                headerGradient: 'from-pink-600/20 to-slate-900',
+                accentHex: '#ec4899',
+                icon: 'fa-graduation-cap',
+                explanation: '[Children school fees, family support, books, courses, kid essentials.]'
+            },
+            {
+                id: 'travel_vacation',
+                title: 'Travel & Vacation Fund',
+                baseWeight: 5,
+                active: false,
+                badgeBg: 'bg-emerald-400/10',
+                badgeText: 'text-emerald-300',
+                borderColor: 'border-emerald-400/30',
+                hoverBorder: 'hover:border-emerald-400',
+                headerGradient: 'from-emerald-500/20 to-slate-900',
+                accentHex: '#34d399',
+                icon: 'fa-plane',
+                explanation: '[Savings pool for flights, weekend getaways, holiday trips, lodging.]'
+            }
+        ];
+
+        // --- Application State ---
+        let currentSalary = 10000;
+        let currentDays = null;
+        let selectedCurrency = 'DH';
+        let chartInstance = null;
+        let activeModalCategory = null;
+
+        // --- DOM Elements ---
+        const salaryInput = document.getElementById('salaryInput');
+        const daysInput = document.getElementById('daysInput');
+        const currencySelect = document.getElementById('currencySelect');
+        const currencySymbolPrefix = document.getElementById('currencySymbolPrefix');
+        const calcBtn = document.getElementById('calcBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const cardsContainer = document.getElementById('cardsContainer');
+        const statTotal = document.getElementById('statTotal');
+        const statActiveCount = document.getElementById('statActiveCount');
+        const statTopCategory = document.getElementById('statTopCategory');
+        const statTopCategorySub = document.getElementById('statTopCategorySub');
+        const activeCountBadge = document.getElementById('activeCountBadge');
+        const reallocationBanner = document.getElementById('reallocationBanner');
+        const reallocationText = document.getElementById('reallocationText');
+
+        // Settings Elements
+        const openSettingsBtn = document.getElementById('openSettingsBtn');
+        const openSettingsBannerBtn = document.getElementById('openSettingsBannerBtn');
+        const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+        const settingsModal = document.getElementById('settingsModal');
+        const settingsModalContent = document.getElementById('settingsModalContent');
+        const settingsCategoryList = document.getElementById('settingsCategoryList');
+        const applySettingsBtn = document.getElementById('applySettingsBtn');
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const restoreDefaultsBtn = document.getElementById('restoreDefaultsBtn');
+        const addCustomCatBtn = document.getElementById('addCustomCatBtn');
+        const customCatTitle = document.getElementById('customCatTitle');
+        const customCatWeight = document.getElementById('customCatWeight');
+        const customCatDesc = document.getElementById('customCatDesc');
+
+        // Detail Modal Elements
+        const categoryModal = document.getElementById('categoryModal');
+        const modalContent = document.getElementById('modalContent');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const closeModalFooterBtn = document.getElementById('closeModalFooterBtn');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalPercentage = document.getElementById('modalPercentage');
+        const modalExplanation = document.getElementById('modalExplanation');
+        const modalIcon = document.getElementById('modalIcon');
+        const modalHeader = document.getElementById('modalHeader');
+        const modalTimeLimitsContainer = document.getElementById('modalTimeLimitsContainer');
+        const modalDailyLimit = document.getElementById('modalDailyLimit');
+        const modalIntervalLimit = document.getElementById('modalIntervalLimit');
+        const modalDaysLabel = document.getElementById('modalDaysLabel');
+        const customIntervalDays = document.getElementById('customIntervalDays');
+        const intervalDaysDisplay = document.getElementById('intervalDaysDisplay');
+        const checkItemCost = document.getElementById('checkItemCost');
+        const checkItemName = document.getElementById('checkItemName');
+        const checkerResult = document.getElementById('checkerResult');
+        const checkerIcon = document.getElementById('checkerIcon');
+        const checkerText = document.getElementById('checkerText');
+
+        // --- Core Math: Proportional Reallocation ---
+        function getActiveCategoriesWithEffectiveWeights() {
+            const activeList = categoriesMaster.filter(c => c.active);
+            if (activeList.length === 0) return [];
+
+            const totalActiveBaseWeight = activeList.reduce((sum, c) => sum + c.baseWeight, 0);
+
+            return activeList.map(c => {
+                const effectiveShare = totalActiveBaseWeight > 0 
+                    ? (c.baseWeight / totalActiveBaseWeight) 
+                    : (1 / activeList.length);
+                return {
+                    ...c,
+                    effectiveShare: effectiveShare,
+                    effectivePercentage: effectiveShare * 100
+                };
+            });
+        }
+
+        // --- Formatting Helper ---
+        function formatCurrency(amount) {
+            return `${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${selectedCurrency}`;
+        }
+
+        // --- UI Rendering Functions ---
+        function renderCards() {
+            cardsContainer.innerHTML = '';
+            const activeCategories = getActiveCategoriesWithEffectiveWeights();
+
+            if (activeCategories.length === 0) {
+                cardsContainer.innerHTML = `
+                    <div class="col-span-full bg-slate-900 border border-rose-500/30 p-8 rounded-2xl text-center space-y-3">
+                        <i class="fa-solid fa-triangle-exclamation text-3xl text-rose-400"></i>
+                        <h4 class="text-lg font-bold text-white">No Expense Categories Selected</h4>
+                        <p class="text-xs text-slate-400">Please open Category Settings and enable at least one category to allocate your budget.</p>
+                        <button onclick="openSettingsModal()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-500 transition">
+                            Open Category Settings
+                        </button>
+                    </div>`;
+                return;
+            }
+
+            activeCategories.forEach(cat => {
+                const calculatedAmount = currentSalary * cat.effectiveShare;
+                
+                const dailyBlockHTML = (currentDays && currentDays > 0)
+                    ? `<div class="text-right">
+                        <span class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">Daily Max (${currentDays}d)</span>
+                        <span class="text-sm font-bold ${cat.badgeText}">${formatCurrency(calculatedAmount / currentDays)}/d</span>
+                       </div>`
+                    : '';
+
+                const card = document.createElement('div');
+                card.className = `bg-slate-900 border ${cat.borderColor} ${cat.hoverBorder} rounded-2xl p-5 flex flex-col justify-between shadow-lg transition-all duration-200 cursor-pointer hover:-translate-y-1 group relative overflow-hidden`;
+                card.onclick = () => openCategoryModal(cat);
+
+                card.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="w-10 h-10 rounded-xl ${cat.badgeBg} ${cat.badgeText} flex items-center justify-center text-lg font-bold group-hover:scale-110 transition-transform">
+                                <i class="fa-solid ${cat.icon}"></i>
+                            </div>
+                            <span class="text-xs font-bold px-2.5 py-1 rounded-full ${cat.badgeBg} ${cat.badgeText} border border-slate-700/50">
+                                ${cat.effectivePercentage.toFixed(1)}%
+                            </span>
+                        </div>
+
+                        <div>
+                            <h4 class="font-bold text-white text-base group-hover:text-indigo-300 transition-colors">${cat.title}</h4>
+                            <p class="text-xs text-slate-400 mt-1 line-clamp-2 italic">${cat.explanation}</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-end justify-between">
+                        <div>
+                            <span class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">Allocated Sum</span>
+                            <span class="text-xl font-extrabold text-white">${formatCurrency(calculatedAmount)}</span>
+                        </div>
+                        ${dailyBlockHTML}
+                    </div>
+                `;
+
+                cardsContainer.appendChild(card);
+            });
+        }
+
+        function updateSummaryStats() {
+            statTotal.textContent = formatCurrency(currentSalary);
+
+            const activeCategories = getActiveCategoriesWithEffectiveWeights();
+            statActiveCount.textContent = activeCategories.length;
+            activeCountBadge.textContent = activeCategories.length;
+
+            if (activeCategories.length > 0) {
+                const topCat = [...activeCategories].sort((a, b) => b.effectiveShare - a.effectiveShare)[0];
+                statTopCategory.textContent = topCat.title;
+                statTopCategorySub.textContent = `${topCat.effectivePercentage.toFixed(1)}% (${formatCurrency(currentSalary * topCat.effectiveShare)})`;
+            } else {
+                statTopCategory.textContent = 'None';
+                statTopCategorySub.textContent = '0% allocated';
+            }
+
+            // Banner state
+            const totalDefaultCategories = categoriesMaster.length;
+            if (activeCategories.length < totalDefaultCategories) {
+                reallocationBanner.classList.remove('hidden');
+                reallocationText.textContent = `Reallocation Active: ${activeCategories.length} active categories. Non-selected categories are redistributed automatically.`;
+            } else {
+                reallocationBanner.classList.add('hidden');
+            }
+        }
+
+        function initOrUpdateChart() {
+            const ctx = document.getElementById('budgetChart').getContext('2d');
+            const activeCategories = getActiveCategoriesWithEffectiveWeights();
+
+            const labels = activeCategories.map(c => c.title);
+            const data = activeCategories.map(c => currentSalary * c.effectiveShare);
+            const backgroundColors = activeCategories.map(c => c.accentHex);
+
+            if (chartInstance) {
+                chartInstance.data.labels = labels;
+                chartInstance.data.datasets[0].data = data;
+                chartInstance.data.datasets[0].backgroundColor = backgroundColors;
+                chartInstance.update();
+            } else {
+                chartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: backgroundColors,
+                            borderWidth: 2,
+                            borderColor: '#0f172a',
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed || 0;
+                                        const cat = activeCategories[context.dataIndex];
+                                        const percentage = cat ? cat.effectivePercentage.toFixed(1) : '0';
+                                        return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        cutout: '70%',
+                        onClick: (e, elements) => {
+                            if (elements.length > 0) {
+                                const index = elements[0].index;
+                                openCategoryModal(activeCategories[index]);
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // --- Settings Modal Drawer Logic ---
+        function openSettingsModal() {
+            renderSettingsCategoryList();
+            settingsModal.classList.remove('pointer-events-none', 'opacity-0');
+            settingsModalContent.classList.remove('scale-95');
+            settingsModalContent.classList.add('scale-100');
+        }
+
+        function closeSettingsModal() {
+            settingsModal.classList.add('opacity-0', 'pointer-events-none');
+            settingsModalContent.classList.remove('scale-100');
+            settingsModalContent.classList.add('scale-95');
+        }
+
+        function renderSettingsCategoryList() {
+            settingsCategoryList.innerHTML = '';
+            
+            // Calculate hypothetical real-time reallocation for settings view
+            const tempActive = categoriesMaster.filter(c => c.active);
+            const tempTotalWeight = tempActive.reduce((s, c) => s + c.baseWeight, 0);
+
+            categoriesMaster.forEach((cat) => {
+                const effectivePct = (cat.active && tempTotalWeight > 0) 
+                    ? ((cat.baseWeight / tempTotalWeight) * 100).toFixed(1) 
+                    : 0;
+
+                const item = document.createElement('div');
+                item.className = `flex items-center justify-between p-3 rounded-xl border transition-colors ${cat.active ? 'bg-slate-950/80 border-slate-700' : 'bg-slate-900/40 border-slate-800 opacity-60'}`;
+                
+                item.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-lg ${cat.badgeBg} ${cat.badgeText} flex items-center justify-center text-sm font-bold">
+                            <i class="fa-solid ${cat.icon}"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-semibold text-sm text-white">${cat.title}</span>
+                                ${cat.isCustom ? '<span class="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">Custom</span>' : ''}
+                            </div>
+                            <p class="text-xs text-slate-400 line-clamp-1">${cat.explanation}</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3">
+                        <span class="text-xs font-bold text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20">
+                            ${cat.active ? `${effectivePct}%` : 'Disabled'}
+                        </span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" class="sr-only peer" ${cat.active ? 'checked' : ''} onchange="toggleCategoryActive('${cat.id}')">
+                            <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+                `;
+                settingsCategoryList.appendChild(item);
+            });
+        }
+
+        window.toggleCategoryActive = function(catId) {
+            const cat = categoriesMaster.find(c => c.id === catId);
+            if (cat) {
+                cat.active = !cat.active;
+                renderSettingsCategoryList();
+            }
+        };
+
+        function addCustomCategory() {
+            const title = customCatTitle.value.trim();
+            const weight = parseFloat(customCatWeight.value);
+            const desc = customCatDesc.value.trim() || '[User defined custom expense bucket]';
+
+            if (!title) {
+                alert('Please enter a category name.');
+                return;
+            }
+            if (isNaN(weight) || weight <= 0) {
+                alert('Please enter a valid positive base importance weight percentage.');
+                return;
+            }
+
+            const newId = 'custom_' + Date.now();
+            categoriesMaster.push({
+                id: newId,
+                title: title,
+                baseWeight: weight,
+                active: true,
+                badgeBg: 'bg-emerald-500/10',
+                badgeText: 'text-emerald-400',
+                borderColor: 'border-emerald-500/30',
+                hoverBorder: 'hover:border-emerald-500',
+                headerGradient: 'from-emerald-600/20 to-slate-900',
+                accentHex: '#10b981',
+                icon: 'fa-folder-plus',
+                explanation: desc.startsWith('[') ? desc : `[${desc}]`,
+                isCustom: true
+            });
+
+            // Reset inputs
+            customCatTitle.value = '';
+            customCatWeight.value = '';
+            customCatDesc.value = '';
+
+            renderSettingsCategoryList();
+        }
+
+        // --- Detail Modal Functions ---
+        function openCategoryModal(cat) {
+            activeModalCategory = cat;
+            
+            modalTitle.textContent = cat.title;
+            modalPercentage.textContent = `Effective Share: ${(cat.effectiveShare * 100).toFixed(1)}%`;
+            modalExplanation.textContent = cat.explanation;
+            
+            modalIcon.className = `w-12 h-12 rounded-xl flex items-center justify-center text-xl text-white shadow-lg ${cat.badgeBg} ${cat.badgeText}`;
+            modalIcon.innerHTML = `<i class="fa-solid ${cat.icon}"></i>`;
+            
+            modalHeader.className = `p-6 border-b border-slate-800 flex items-start justify-between relative overflow-hidden rounded-t-2xl bg-gradient-to-r ${cat.headerGradient}`;
+
+            checkItemName.value = '';
+            checkItemCost.value = '';
+            checkerResult.classList.add('hidden');
+
+            updateModalLimits();
+
+            categoryModal.classList.remove('pointer-events-none', 'opacity-0');
+            modalContent.classList.remove('scale-95');
+            modalContent.classList.add('scale-100');
+        }
+
+        function closeModal() {
+            categoryModal.classList.add('opacity-0', 'pointer-events-none');
+            modalContent.classList.remove('scale-100');
+            modalContent.classList.add('scale-95');
+            activeModalCategory = null;
+        }
+
+        function updateModalLimits() {
+            if (!activeModalCategory) return;
+
+            const categoryTotal = currentSalary * activeModalCategory.effectiveShare;
+            const periodDays = currentDays && currentDays > 0 ? currentDays : 30; // Default to 30 days if overall days left blank
+            
+            let intervalDays = parseInt(customIntervalDays.value);
+            if (isNaN(intervalDays) || intervalDays <= 0) intervalDays = 1;
+
+            intervalDaysDisplay.textContent = intervalDays;
+
+            const dailyRate = categoryTotal / periodDays;
+            const intervalLimit = dailyRate * intervalDays;
+
+            modalDailyLimit.textContent = formatCurrency(dailyRate);
+            modalIntervalLimit.textContent = formatCurrency(intervalLimit);
+
+            if (currentDays && currentDays > 0) {
+                modalDaysLabel.textContent = `Overall Base: ${currentDays} Days`;
+            } else {
+                modalDaysLabel.textContent = `Overall Base: 30 Days (Default)`;
+            }
+
+            evaluateFeasibility();
+        }
+
+        function evaluateFeasibility() {
+            if (!activeModalCategory) return;
+
+            const cost = parseFloat(checkItemCost.value);
+            const itemName = checkItemName.value.trim() || 'This expense';
+
+            if (isNaN(cost) || cost <= 0) {
+                checkerResult.classList.add('hidden');
+                return;
+            }
+
+            const categoryTotal = currentSalary * activeModalCategory.effectiveShare;
+            const periodDays = currentDays && currentDays > 0 ? currentDays : 30;
+            const dailyRate = categoryTotal / periodDays;
+
+            let intervalDays = parseInt(customIntervalDays.value);
+            if (isNaN(intervalDays) || intervalDays <= 0) intervalDays = 1;
+
+            const intervalLimit = dailyRate * intervalDays;
+
+            checkerResult.classList.remove('hidden');
+
+            if (cost <= intervalLimit) {
+                checkerResult.className = 'p-3 rounded-lg border text-xs leading-relaxed flex items-center space-x-3 bg-emerald-500/10 border-emerald-500/30 text-emerald-300';
+                checkerIcon.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-400"></i>';
+                checkerText.innerHTML = `<strong>Fits your ${intervalDays}-day target!</strong> "${itemName}" fits within your ${intervalDays}-day budget of ${formatCurrency(intervalLimit)}.`;
+            } else if (cost <= categoryTotal) {
+                const daysNeeded = Math.ceil(cost / dailyRate);
+                checkerResult.className = 'p-3 rounded-lg border text-xs leading-relaxed flex items-center space-x-3 bg-amber-500/10 border-amber-500/30 text-amber-300';
+                checkerIcon.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-amber-400"></i>';
+                checkerText.innerHTML = `<strong>Exceeds ${intervalDays}-day target!</strong> "${itemName}" (${formatCurrency(cost)}) consumes approx <strong>${daysNeeded} days</strong> of this category's total pool (${formatCurrency(categoryTotal)}).`;
+            } else {
+                const exceededBy = cost - categoryTotal;
+                checkerResult.className = 'p-3 rounded-lg border text-xs leading-relaxed flex items-center space-x-3 bg-rose-500/10 border-rose-500/30 text-rose-300';
+                checkerIcon.innerHTML = '<i class="fa-solid fa-circle-xmark text-rose-400"></i>';
+                checkerText.innerHTML = `<strong>Exceeds total category budget!</strong> Exceeds your total ${activeModalCategory.title} pool by ${formatCurrency(exceededBy)}.`;
+            }
+        }
+
+        // --- Event Listeners Setup ---
+        function initEvents() {
+            const updateCalculation = () => {
+                const val = parseFloat(salaryInput.value);
+                const daysVal = parseInt(daysInput.value);
+
+                currentSalary = isNaN(val) || val < 0 ? 0 : val;
+                currentDays = isNaN(daysVal) || daysVal <= 0 ? null : daysVal;
+
+                renderCards();
+                updateSummaryStats();
+                initOrUpdateChart();
+            };
+
+            salaryInput.addEventListener('input', updateCalculation);
+            daysInput.addEventListener('input', updateCalculation);
+            calcBtn.addEventListener('click', updateCalculation);
+
+            salaryInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') updateCalculation();
+            });
+            daysInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') updateCalculation();
+            });
+
+            // Currency Selector (Default Dirham)
+            currencySelect.addEventListener('change', (e) => {
+                selectedCurrency = e.target.value;
+                currencySymbolPrefix.textContent = selectedCurrency;
+                updateCalculation();
+                if (activeModalCategory) updateModalLimits();
+            });
+
+            // Reset Input Button
+            resetBtn.addEventListener('click', () => {
+                salaryInput.value = 10000;
+                daysInput.value = '';
+                updateCalculation();
+            });
+
+            // Settings Modal Listeners
+            openSettingsBtn.addEventListener('click', openSettingsModal);
+            openSettingsBannerBtn.addEventListener('click', openSettingsModal);
+            closeSettingsBtn.addEventListener('click', closeSettingsModal);
+            
+            settingsModal.addEventListener('click', (e) => {
+                if (e.target === settingsModal) closeSettingsModal();
+            });
+
+            applySettingsBtn.addEventListener('click', () => {
+                closeSettingsModal();
+                updateCalculation();
+            });
+
+            selectAllBtn.addEventListener('click', () => {
+                categoriesMaster.forEach(c => c.active = true);
+                renderSettingsCategoryList();
+            });
+
+            restoreDefaultsBtn.addEventListener('click', () => {
+                categoriesMaster.forEach(c => {
+                    // Default 7 active, niche inactive
+                    if (['housing','food','investment','transport','debt_savings','guilt_free','annuals_buffer'].includes(c.id)) {
+                        c.active = true;
+                    } else {
+                        c.active = false;
+                    }
+                });
+                renderSettingsCategoryList();
+            });
+
+            addCustomCatBtn.addEventListener('click', addCustomCategory);
+
+            // Detail Modal Listeners
+            closeModalBtn.addEventListener('click', closeModal);
+            closeModalFooterBtn.addEventListener('click', closeModal);
+            categoryModal.addEventListener('click', (e) => {
+                if (e.target === categoryModal) closeModal();
+            });
+
+            // Multi-day custom interval listeners
+            customIntervalDays.addEventListener('input', updateModalLimits);
+            
+            document.querySelectorAll('.interval-chip').forEach(chip => {
+                chip.addEventListener('click', (e) => {
+                    document.querySelectorAll('.interval-chip').forEach(c => {
+                        c.className = 'interval-chip text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition font-semibold';
+                    });
+                    e.currentTarget.className = 'interval-chip text-[11px] bg-indigo-600 text-white px-2.5 py-1 rounded-lg border border-indigo-500 transition font-bold shadow';
+                    
+                    const days = e.currentTarget.getAttribute('data-days');
+                    customIntervalDays.value = days;
+                    updateModalLimits();
+                });
+            });
+
+            // Feasibility checker events
+            checkItemCost.addEventListener('input', evaluateFeasibility);
+            checkItemName.addEventListener('input', evaluateFeasibility);
+        }
+
+        // --- Window Load Execution ---
+        window.onload = function() {
+            salaryInput.value = currentSalary;
+            daysInput.value = '';
+            selectedCurrency = 'DH';
+            currencySelect.value = 'DH';
+            currencySymbolPrefix.textContent = 'DH';
+
+            renderCards();
+            updateSummaryStats();
+            initOrUpdateChart();
+            initEvents();
+        };
+    </script>
+</body>
+</html>
